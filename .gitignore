@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Dataset and Model files
+data/raw/candidates.jsonl
+data/processed/candidate_embeddings.npy
+data/processed/candidate_ids.pkl
+data/processed/feature_scores.parquet
+models/faiss_index.bin

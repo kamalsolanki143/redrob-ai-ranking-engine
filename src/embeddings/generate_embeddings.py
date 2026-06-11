@@ -83,8 +83,10 @@ def generate_embeddings(
     batch_size: int = BATCH_SIZE,
     save_path: str | Path = EMBEDDINGS_PATH,
 ) -> np.ndarray:
-    logger.info(f"Loading model: {model_name}")
-    model = SentenceTransformer(model_name, device="cpu")
+    import torch
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    logger.info(f"Loading model: {model_name} on {device}")
+    model = SentenceTransformer(model_name, device=device)
 
     texts = []
     candidate_ids = []
