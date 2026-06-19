@@ -67,8 +67,10 @@ def retrieve_top_candidates(
     jd_text = build_jd_text(jd_data)
     logger.info(f"JD text length: {len(jd_text)} chars")
 
-    logger.info(f"Loading model: {MODEL_NAME}")
-    model = SentenceTransformer(MODEL_NAME, device="cpu")
+    import torch
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    logger.info(f"Loading model: {MODEL_NAME} on {device}")
+    model = SentenceTransformer(MODEL_NAME, device=device)
 
     logger.info("Embedding JD...")
     query_emb = embed_jd(jd_text, model)
