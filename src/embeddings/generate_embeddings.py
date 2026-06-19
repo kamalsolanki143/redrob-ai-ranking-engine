@@ -5,7 +5,7 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-import gdown
+import requests
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 from loguru import logger
@@ -23,9 +23,33 @@ from src.utils.config import (
 
 def _download_from_drive(file_id: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    url = f"https://drive.google.com/uc?id={file_id}"
-    logger.info(f"Downloading candidates.jsonl from Google Drive...")
-    gdown.download(url, str(dest), quiet=False)
+    url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+    session = requests.Session()
+    response = session.get(url, stream=True)
+    response.raise_for_status()
+
+    confirm = None
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            confirm = value
+            break
+
+    if confirm:
+        url = f"https://drive.google.com/uc?export=download&confirm={confirm}&id={file_id}"
+        response = session.get(url, stream=True)
+        response.raise_for_status()
+
+    total = int(response.headers.get("content-length", 0))
+    desc = f"Downloading candidates.jsonl ({total // (1024*1024)}MB)"
+
+    with open(dest, "wb") as f, tqdm(
+        desc=desc, total=total, unit="B", unit_scale=True, unit_divisor=1024
+    ) as pbar:
+        for chunk in response.iter_content(chunk_size=65536):
+            f.write(chunk)
+            pbar.update(len(chunk))
+
     logger.info(f"Downloaded to {dest}")
 
 

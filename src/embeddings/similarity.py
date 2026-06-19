@@ -84,9 +84,7 @@ def retrieve_top_candidates(
     df["semantic_score"] = df["semantic_score"].clip(0.0, 1.0)
     logger.info(f"Returning {len(df)} candidates")
 
-    top_1000_df = df.copy()
-
-    return top_1000_df
+    return df
 
 
 if __name__ == "__main__":
