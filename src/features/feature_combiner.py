@@ -54,6 +54,8 @@ from features.skill_features  import compute_skill_score
 from features.career_features import compute_career_score
 from features.signal_features import compute_signal_score
 
+from src.validation import validate_candidate, get_penalty_multiplier
+
 
 # ---------------------------------------------------------------------------
 # Default file paths (relative to project root)
@@ -421,7 +423,8 @@ def score_candidates(
     """
     Run all three feature scorers on the candidate list and return a DataFrame.
 
-    Output columns: candidate_id, skill_score, career_score, signal_score
+    Output columns: candidate_id, skill_score, career_score, signal_score,
+                    is_honeypot, risk_score, validation_tier
     """
     jd_skills     = (jd.get("required_skills", []) or []) + (jd.get("preferred_skills", []) or [])
     jd_skills     = [s for s in jd_skills if s]  # remove empty strings
@@ -444,12 +447,32 @@ def score_candidates(
             print(f"[WARN] Error scoring {cid}: {e}. Using 0.0 defaults.")
             skill_score = career_score = signal_score = 0.0
 
+        # --- Honeypot / Validation Check ---
+        # Run validation to detect fake/suspicious profiles.
+        # The penalty multiplier is applied downstream by scorer.py/ranker.py:
+        #   honeypot   → multiplier = 0.0 (excluded from Top 100)
+        #   suspicious → multiplier = 0.7 (penalized)
+        #   clean      → multiplier = 1.0 (no penalty)
+        try:
+            validation_result = validate_candidate(candidate)
+            is_honeypot = validation_result.is_honeypot
+            risk_score = validation_result.risk_score
+            validation_tier = validation_result.tier
+        except Exception as e:
+            print(f"[WARN] Validation error for {cid}: {e}. Assuming clean.")
+            is_honeypot = False
+            risk_score = 0
+            validation_tier = "clean"
+
         records.append(
             {
                 "candidate_id": cid,
                 "skill_score":  round(skill_score,  4),
                 "career_score": round(career_score, 4),
                 "signal_score": round(signal_score, 4),
+                "is_honeypot":  is_honeypot,
+                "risk_score":   risk_score,
+                "validation_tier": validation_tier,
             }
         )
 
