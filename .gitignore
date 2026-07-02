@@ -223,3 +223,12 @@ data/processed/candidate_embeddings.npy
 data/processed/candidate_ids.pkl
 data/processed/feature_scores.parquet
 models/faiss_index.bin
+
+# Generated model artifacts
+models/
+*.npy
+*.faiss
+*.pkl
+
+# Large dataset
+data/raw/candidates.jsonl

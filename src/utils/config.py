@@ -65,7 +65,7 @@ class OutputConfig:
     def submission_path(self) -> Path:
         return self.submissions_dir / self.submission_filename
 
-dataclass(frozen=True)
+@dataclass(frozen=True)
 class ReasoningConfig:
     high_semantic_threshold: float = 0.75
     high_skill_threshold: float = 0.70
@@ -87,3 +87,30 @@ class RankingEngineConfig:
     reasoning: ReasoningConfig = field(default_factory=ReasoningConfig)
 
 DEFAULT_CONFIG: Final[RankingEngineConfig] = RankingEngineConfig()
+# ==========================================================
+# Embeddings & Retrieval Configuration
+# ==========================================================
+
+PROJECT_ROOT = _PROJECT_ROOT
+
+DATA_DIR = PROJECT_ROOT / "data"
+RAW_DATA_DIR = DATA_DIR / "raw"
+PROCESSED_DATA_DIR = DATA_DIR / "processed"
+MODELS_DIR = PROJECT_ROOT / "models"
+
+# Dataset paths
+CANDIDATES_PATH = RAW_DATA_DIR / "candidates.jsonl"
+JD_PATH = RAW_DATA_DIR / "job_description.docx"
+
+# Model artifacts
+EMBEDDINGS_PATH = MODELS_DIR / "candidate_embeddings.npy"
+IDS_PATH = MODELS_DIR / "candidate_ids.pkl"
+FAISS_INDEX_PATH = MODELS_DIR / "candidate_index.faiss"
+
+# Embedding configuration
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+BATCH_SIZE = 64
+TOP_K = 100
+
+# Google Drive dataset
+GOOGLE_DRIVE_FILE_ID = "1tB7Otd2EGldaDRu62cVnIoW6_G8A_HaT"

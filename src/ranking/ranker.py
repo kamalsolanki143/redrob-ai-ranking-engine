@@ -269,4 +269,4 @@ class CandidateRanker:
         logger.info(
             "Bottom 5 candidates (selected set):\n%s",
             bottom5.to_string(index=False),
-        )s
+        )
