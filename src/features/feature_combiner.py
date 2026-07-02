@@ -61,13 +61,13 @@ from src.validation import validate_candidate, get_penalty_multiplier
 # Default file paths (relative to project root)
 # ---------------------------------------------------------------------------
 DEFAULT_CANDIDATES_PATH = _ROOT / "data" / "raw" / "candidates.jsonl"
-DEFAULT_JD_PATH         = _ROOT / "data" / "raw" / "job_description.json"
+DEFAULT_JD_PATH         = _ROOT / "data" / "raw" / "job_description.docx"
 DEFAULT_OUTPUT_PATH     = _ROOT / "data" / "processed" / "feature_scores.parquet"
 
 # FAISS output files (relative to project root)
-FAISS_INDEX_PATH = _ROOT / "models"  / "faiss_index.bin"
-EMBEDDINGS_PATH  = _ROOT / "data"    / "processed" / "candidate_embeddings.npy"
-IDS_PATH         = _ROOT / "data"    / "processed" / "candidate_ids.pkl"
+FAISS_INDEX_PATH = _ROOT / "models" / "candidate_index.faiss"
+EMBEDDINGS_PATH = _ROOT / "models" / "candidate_embeddings.npy"
+IDS_PATH = _ROOT / "models" / "candidate_ids.pkl"
 
 # How many top candidates to keep after pre-filter
 DEFAULT_TOP_N = 500
@@ -130,15 +130,30 @@ def faiss_retrieve_candidates(
 
     # Fetch full candidate dicts from candidates.jsonl by ID
     id_to_candidate: dict[str, dict] = {}
+
     for candidate in stream_candidates(candidates_jsonl):
         cid = candidate.get("candidate_id", "")
         if cid in top_ids:
             id_to_candidate[cid] = candidate
+
         if len(id_to_candidate) == len(top_ids):
             break  # found all — stop early
 
-    # Return in FAISS rank order (best semantic match first)
-    ordered = [id_to_candidate[cid] for cid in faiss_df["candidate_id"] if cid in id_to_candidate]
+    # Create candidate_id -> semantic_score mapping
+    score_map = dict(
+        zip(
+            faiss_df["candidate_id"],
+            faiss_df["semantic_score"],
+        )
+    )
+
+    # Return candidates in FAISS order and attach semantic score
+    ordered = []
+    for cid in faiss_df["candidate_id"]:
+        if cid in id_to_candidate:
+            candidate = id_to_candidate[cid]
+            candidate["semantic_score"] = float(score_map[cid])
+            ordered.append(candidate)
 
     elapsed = time.time() - t0
     print(f"[INFO] FAISS retrieval done: {len(ordered)} candidates in {elapsed:.1f}s.")
@@ -440,13 +455,34 @@ def score_candidates(
     for i, candidate in enumerate(candidates, start=1):
         cid = candidate.get("candidate_id", f"UNKNOWN_{i}")
         try:
-            skill_score  = compute_skill_score(candidate, jd_skills)
+            skill_score = compute_skill_score(candidate, jd_skills)
             career_score = compute_career_score(candidate, jd_min_exp, jd_industry)
             signal_score = compute_signal_score(candidate)
+
+            signals = candidate.get("redrob_signals", {}) or {}
+
+            open_to_work = bool(signals.get("open_to_work_flag", True))
+
+            last_active = signals.get("last_active_date")
+            if last_active:
+                from datetime import datetime
+                reference_date = datetime(2026, 6, 11).date()
+                last_date = datetime.strptime(last_active, "%Y-%m-%d").date()
+                days_inactive = (reference_date - last_date).days
+            else:
+                days_inactive = 999
+
+            interview_completion_rate = float(
+                signals.get("interview_completion_rate", 1.0) or 1.0
+            )
+
         except Exception as e:
             print(f"[WARN] Error scoring {cid}: {e}. Using 0.0 defaults.")
             skill_score = career_score = signal_score = 0.0
 
+            open_to_work = True
+            days_inactive = 999
+            interview_completion_rate = 1.0
         # --- Honeypot / Validation Check ---
         # Run validation to detect fake/suspicious profiles.
         # The penalty multiplier is applied downstream by scorer.py/ranker.py:
@@ -467,11 +503,15 @@ def score_candidates(
         records.append(
             {
                 "candidate_id": cid,
-                "skill_score":  round(skill_score,  4),
+                "semantic_score": round(candidate.get("semantic_score", 0.0), 4),
+                "skill_score": round(skill_score, 4),
                 "career_score": round(career_score, 4),
                 "signal_score": round(signal_score, 4),
-                "is_honeypot":  is_honeypot,
-                "risk_score":   risk_score,
+                "is_honeypot": is_honeypot,
+                "open_to_work": open_to_work,
+                "days_inactive": days_inactive,
+                "interview_completion_rate": round(interview_completion_rate, 4),
+                "risk_score": risk_score,
                 "validation_tier": validation_tier,
             }
         )

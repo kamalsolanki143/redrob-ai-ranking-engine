@@ -154,22 +154,29 @@ def main() -> None:
     """Entry point for the ranking pipeline."""
     args = _parse_args()
 
-    # ── load features ──
-    if args.demo or args.input is None:
-        if args.input is None and not args.demo:
-            logger.info("No --input provided; defaulting to --demo mode.")
+    if args.demo:
+        logger.info("Running in demo mode.")
         features_df = _generate_demo_data()
     else:
-        path = Path(args.input)
-        if not path.exists():
-            logger.error("Input file not found: %s", path)
-            sys.exit(1)
-        logger.info("Loading features from %s …", path)
-        if path.suffix == ".parquet":
-            features_df = pd.read_parquet(path)
+        default_file = Path("data/processed/feature_scores.parquet")
+
+        if args.input is None:
+            args.input = default_file
+            logger.info(f"Using feature file: {args.input}")
         else:
-            features_df = pd.read_csv(path)
-        logger.info("Loaded %d rows × %d cols.", len(features_df), len(features_df.columns))
+            args.input = Path(args.input)
+
+        if not args.input.exists():
+            raise FileNotFoundError(
+                f"Feature file not found: {args.input}\n"
+                "Run:\n"
+                "python -m src.features.feature_combiner"
+            )
+
+        if args.input.suffix == ".parquet":
+            features_df = pd.read_parquet(args.input)
+        else:
+            features_df = pd.read_csv(args.input)
 
     # ── build submission ──
     builder = SubmissionBuilder()
