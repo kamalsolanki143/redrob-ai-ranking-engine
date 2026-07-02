@@ -576,7 +576,7 @@ Download: [Google Drive Link — paste here]
 **India Runs Hackathon** by Redrob AI × Hack2Skill
 Track 1: Intelligent Candidate Discovery & Ranking
 Prize Pool: ₹10 Lakhs
-Submission Deadline: 28 June 2026
+Submission Deadline: 2 july 2026
 
 ---
 
